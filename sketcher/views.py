@@ -43,5 +43,8 @@ def get_titles(facet_response):
     titles = []
     if 'storeMetaInfoList' in facet_response:
         for meta in facet_response['storeMetaInfoList']:
-            titles.append(meta['title'])
+            title = meta['title'].lower()
+            if title.endswith('s'):
+                title = title[:-1]
+            titles.append(title)
     return titles
