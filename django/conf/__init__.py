@@ -1,22 +1,21 @@
 """
 Settings and configuration for Django.
 
-Values will be read from the module specified by the DJANGO_SETTINGS_MODULE environment
-variable, and then from django.conf.global_settings; see the global settings file for
-a list of all possible variables.
+Read values from the module specified by the DJANGO_SETTINGS_MODULE environment
+variable, and then from django.conf.global_settings; see the global_settings.py
+for a list of all possible variables.
 """
 
-import logging
+import importlib
 import os
-import sys
-import time     # Needed for Windows
+import time
 import warnings
+from pathlib import Path
 
 from django.conf import global_settings
 from django.core.exceptions import ImproperlyConfigured
+from django.utils.deprecation import RemovedInDjango30Warning
 from django.utils.functional import LazyObject, empty
-from django.utils import importlib
-from django.utils import six
 
 ENVIRONMENT_VARIABLE = "DJANGO_SETTINGS_MODULE"
 
@@ -30,14 +29,11 @@ class LazySettings(LazyObject):
     def _setup(self, name=None):
         """
         Load the settings module pointed to by the environment variable. This
-        is used the first time we need any settings at all, if the user has not
-        previously configured the settings manually.
+        is used the first time settings are needed, if the user hasn't
+        configured settings manually.
         """
-        try:
-            settings_module = os.environ[ENVIRONMENT_VARIABLE]
-            if not settings_module: # If it's set but is an empty string.
-                raise KeyError
-        except KeyError:
+        settings_module = os.environ.get(ENVIRONMENT_VARIABLE)
+        if not settings_module:
             desc = ("setting %s" % name) if name else "settings"
             raise ImproperlyConfigured(
                 "Requested %s, but settings are not configured. "
@@ -46,42 +42,38 @@ class LazySettings(LazyObject):
                 % (desc, ENVIRONMENT_VARIABLE))
 
         self._wrapped = Settings(settings_module)
-        self._configure_logging()
+
+    def __repr__(self):
+        # Hardcode the class name as otherwise it yields 'Settings'.
+        if self._wrapped is empty:
+            return '<LazySettings [Unevaluated]>'
+        return '<LazySettings "%(settings_module)s">' % {
+            'settings_module': self._wrapped.SETTINGS_MODULE,
+        }
 
     def __getattr__(self, name):
+        """Return the value of a setting and cache it in self.__dict__."""
         if self._wrapped is empty:
             self._setup(name)
-        return getattr(self._wrapped, name)
+        val = getattr(self._wrapped, name)
+        self.__dict__[name] = val
+        return val
 
-    def _configure_logging(self):
+    def __setattr__(self, name, value):
         """
-        Setup logging from LOGGING_CONFIG and LOGGING settings.
+        Set the value of setting. Clear all cached values if _wrapped changes
+        (@override_settings does this) or clear single values when set.
         """
-        if not sys.warnoptions:
-            try:
-                # Route warnings through python logging
-                logging.captureWarnings(True)
-                # Allow DeprecationWarnings through the warnings filters
-                warnings.simplefilter("default", DeprecationWarning)
-            except AttributeError:
-                # No captureWarnings on Python 2.6, DeprecationWarnings are on anyway
-                pass
+        if name == '_wrapped':
+            self.__dict__.clear()
+        else:
+            self.__dict__.pop(name, None)
+        super().__setattr__(name, value)
 
-        if self.LOGGING_CONFIG:
-            from django.utils.log import DEFAULT_LOGGING
-            # First find the logging configuration function ...
-            logging_config_path, logging_config_func_name = self.LOGGING_CONFIG.rsplit('.', 1)
-            logging_config_module = importlib.import_module(logging_config_path)
-            logging_config_func = getattr(logging_config_module, logging_config_func_name)
-
-            logging_config_func(DEFAULT_LOGGING)
-
-            if self.LOGGING:
-                # Backwards-compatibility shim for #16288 fix
-                compat_patch_logging_config(self.LOGGING)
-
-                # ... then invoke it with the logging settings
-                logging_config_func(self.LOGGING)
+    def __delattr__(self, name):
+        """Delete a setting and clear it from cache if needed."""
+        super().__delattr__(name)
+        self.__dict__.pop(name, None)
 
     def configure(self, default_settings=global_settings, **options):
         """
@@ -95,79 +87,71 @@ class LazySettings(LazyObject):
         for name, value in options.items():
             setattr(holder, name, value)
         self._wrapped = holder
-        self._configure_logging()
 
     @property
     def configured(self):
-        """
-        Returns True if the settings have already been configured.
-        """
+        """Return True if the settings have already been configured."""
         return self._wrapped is not empty
 
 
-class BaseSettings(object):
-    """
-    Common logic for settings whether set by a module or by the user.
-    """
-    def __setattr__(self, name, value):
-        if name in ("MEDIA_URL", "STATIC_URL") and value and not value.endswith('/'):
-            raise ImproperlyConfigured("If set, %s must end with a slash" % name)
-        elif name == "ALLOWED_INCLUDE_ROOTS" and isinstance(value, six.string_types):
-            raise ValueError("The ALLOWED_INCLUDE_ROOTS setting must be set "
-                "to a tuple, not a string.")
-        object.__setattr__(self, name, value)
-
-
-class Settings(BaseSettings):
+class Settings:
     def __init__(self, settings_module):
         # update this dict from global settings (but only for ALL_CAPS settings)
         for setting in dir(global_settings):
-            if setting == setting.upper():
+            if setting.isupper():
                 setattr(self, setting, getattr(global_settings, setting))
 
         # store the settings module in case someone later cares
         self.SETTINGS_MODULE = settings_module
 
-        try:
-            mod = importlib.import_module(self.SETTINGS_MODULE)
-        except ImportError as e:
-            raise ImportError("Could not import settings '%s' (Is it on sys.path?): %s" % (self.SETTINGS_MODULE, e))
+        mod = importlib.import_module(self.SETTINGS_MODULE)
 
-        # Settings that should be converted into tuples if they're mistakenly entered
-        # as strings.
-        tuple_settings = ("INSTALLED_APPS", "TEMPLATE_DIRS")
-
+        tuple_settings = (
+            "INSTALLED_APPS",
+            "TEMPLATE_DIRS",
+            "LOCALE_PATHS",
+        )
+        self._explicit_settings = set()
         for setting in dir(mod):
-            if setting == setting.upper():
+            if setting.isupper():
                 setting_value = getattr(mod, setting)
-                if setting in tuple_settings and \
-                        isinstance(setting_value, six.string_types):
-                    warnings.warn("The %s setting must be a tuple. Please fix your "
-                                  "settings, as auto-correction is now deprecated." % setting,
-                        PendingDeprecationWarning)
-                    setting_value = (setting_value,) # In case the user forgot the comma.
+
+                if (setting in tuple_settings and
+                        not isinstance(setting_value, (list, tuple))):
+                    raise ImproperlyConfigured("The %s setting must be a list or a tuple. " % setting)
                 setattr(self, setting, setting_value)
+                self._explicit_settings.add(setting)
 
         if not self.SECRET_KEY:
             raise ImproperlyConfigured("The SECRET_KEY setting must not be empty.")
 
+        if self.is_overridden('DEFAULT_CONTENT_TYPE'):
+            warnings.warn('The DEFAULT_CONTENT_TYPE setting is deprecated.', RemovedInDjango30Warning)
+
         if hasattr(time, 'tzset') and self.TIME_ZONE:
             # When we can, attempt to validate the timezone. If we can't find
             # this file, no check happens and it's harmless.
-            zoneinfo_root = '/usr/share/zoneinfo'
-            if (os.path.exists(zoneinfo_root) and not
-                    os.path.exists(os.path.join(zoneinfo_root, *(self.TIME_ZONE.split('/'))))):
+            zoneinfo_root = Path('/usr/share/zoneinfo')
+            zone_info_file = zoneinfo_root.joinpath(*self.TIME_ZONE.split('/'))
+            if zoneinfo_root.exists() and not zone_info_file.exists():
                 raise ValueError("Incorrect timezone setting: %s" % self.TIME_ZONE)
             # Move the time zone info into os.environ. See ticket #2315 for why
             # we don't do this unconditionally (breaks Windows).
             os.environ['TZ'] = self.TIME_ZONE
             time.tzset()
 
+    def is_overridden(self, setting):
+        return setting in self._explicit_settings
 
-class UserSettingsHolder(BaseSettings):
-    """
-    Holder for user configured settings.
-    """
+    def __repr__(self):
+        return '<%(cls)s "%(settings_module)s">' % {
+            'cls': self.__class__.__name__,
+            'settings_module': self.SETTINGS_MODULE,
+        }
+
+
+class UserSettingsHolder:
+    """Holder for user configured settings."""
     # SETTINGS_MODULE doesn't make much sense in the manually configured
     # (standalone) case.
     SETTINGS_MODULE = None
@@ -187,47 +171,31 @@ class UserSettingsHolder(BaseSettings):
 
     def __setattr__(self, name, value):
         self._deleted.discard(name)
-        return super(UserSettingsHolder, self).__setattr__(name, value)
+        if name == 'DEFAULT_CONTENT_TYPE':
+            warnings.warn('The DEFAULT_CONTENT_TYPE setting is deprecated.', RemovedInDjango30Warning)
+        super().__setattr__(name, value)
 
     def __delattr__(self, name):
         self._deleted.add(name)
-        return super(UserSettingsHolder, self).__delattr__(name)
+        if hasattr(self, name):
+            super().__delattr__(name)
 
     def __dir__(self):
-        return list(self.__dict__) + dir(self.default_settings)
+        return sorted(
+            s for s in list(self.__dict__) + dir(self.default_settings)
+            if s not in self._deleted
+        )
 
-settings = LazySettings()
+    def is_overridden(self, setting):
+        deleted = (setting in self._deleted)
+        set_locally = (setting in self.__dict__)
+        set_on_default = getattr(self.default_settings, 'is_overridden', lambda s: False)(setting)
+        return deleted or set_locally or set_on_default
 
-
-
-def compat_patch_logging_config(logging_config):
-    """
-    Backwards-compatibility shim for #16288 fix. Takes initial value of
-    ``LOGGING`` setting and patches it in-place (issuing deprecation warning)
-    if "mail_admins" logging handler is configured but has no filters.
-
-    """
-    #  Shim only if LOGGING["handlers"]["mail_admins"] exists,
-    #  but has no "filters" key
-    if "filters" not in logging_config.get(
-        "handlers", {}).get(
-        "mail_admins", {"filters": []}):
-
-        warnings.warn(
-            "You have no filters defined on the 'mail_admins' logging "
-            "handler: adding implicit debug-false-only filter. "
-            "See http://docs.djangoproject.com/en/dev/releases/1.4/"
-            "#request-exceptions-are-now-always-logged",
-            DeprecationWarning)
-
-        filter_name = "require_debug_false"
-
-        filters = logging_config.setdefault("filters", {})
-        while filter_name in filters:
-            filter_name = filter_name + "_"
-
-        filters[filter_name] = {
-            "()": "django.utils.log.RequireDebugFalse",
+    def __repr__(self):
+        return '<%(cls)s>' % {
+            'cls': self.__class__.__name__,
         }
 
-        logging_config["handlers"]["mail_admins"]["filters"] = [filter_name]
+
+settings = LazySettings()

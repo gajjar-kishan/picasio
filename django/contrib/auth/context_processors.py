@@ -1,34 +1,32 @@
 # PermWrapper and PermLookupDict proxy the permissions system into objects that
 # the template system can understand.
 
-class PermLookupDict(object):
-    def __init__(self, user, module_name):
-        self.user, self.module_name = user, module_name
+
+class PermLookupDict:
+    def __init__(self, user, app_label):
+        self.user, self.app_label = user, app_label
 
     def __repr__(self):
         return str(self.user.get_all_permissions())
 
     def __getitem__(self, perm_name):
-        return self.user.has_perm("%s.%s" % (self.module_name, perm_name))
+        return self.user.has_perm("%s.%s" % (self.app_label, perm_name))
 
     def __iter__(self):
-        # To fix 'item in perms.someapp' and __getitem__ iteraction we need to
+        # To fix 'item in perms.someapp' and __getitem__ interaction we need to
         # define __iter__. See #18979 for details.
         raise TypeError("PermLookupDict is not iterable.")
 
     def __bool__(self):
-        return self.user.has_module_perms(self.module_name)
-
-    def __nonzero__(self):      # Python 2 compatibility
-        return type(self).__bool__(self)
+        return self.user.has_module_perms(self.app_label)
 
 
-class PermWrapper(object):
+class PermWrapper:
     def __init__(self, user):
         self.user = user
 
-    def __getitem__(self, module_name):
-        return PermLookupDict(self.user, module_name)
+    def __getitem__(self, app_label):
+        return PermLookupDict(self.user, app_label)
 
     def __iter__(self):
         # I am large, I contain multitudes.
@@ -41,16 +39,16 @@ class PermWrapper(object):
         if '.' not in perm_name:
             # The name refers to module.
             return bool(self[perm_name])
-        module_name, perm_name = perm_name.split('.', 1)
-        return self[module_name][perm_name]
+        app_label, perm_name = perm_name.split('.', 1)
+        return self[app_label][perm_name]
 
 
 def auth(request):
     """
-    Returns context variables required by apps that use Django's authentication
+    Return context variables required by apps that use Django's authentication
     system.
 
-    If there is no 'user' attribute in the request, uses AnonymousUser (from
+    If there is no 'user' attribute in the request, use AnonymousUser (from
     django.contrib.auth).
     """
     if hasattr(request, 'user'):

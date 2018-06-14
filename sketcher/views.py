@@ -1,14 +1,15 @@
 # Create your views here.
 from django.http import HttpResponse
 from django.conf import settings
-import json, urllib2, urllib
+import json
 import requests
 from django.shortcuts import render_to_response
 from django.template import RequestContext
+from django.shortcuts import render
 
 def sketch(request):
     response = ""
-    return render_to_response('index.html', {}, context_instance=RequestContext(request))
+    return render(request, 'index.html', {})
 
 def suggestions(request):
     queried = request.GET.get("q", "")
