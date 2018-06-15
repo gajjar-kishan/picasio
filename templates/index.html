@@ -218,6 +218,39 @@
 			}
 		});
 	}
+
+	function displayLinkedSuggestions(selected_title) {
+		clearInterval(drawingInterval);
+		shapes.push(currentShape);
+		
+		console.log("IN SELEC " + selected_title)
+		var shapeDrawingTime = Date.now() - pressedAt;
+		//console.log("It tooks: "+shapeDrawingTime+"ms");
+		var api_url = "/suggestions?q=" + selected_title;
+		jQuery.ajax({
+			url: api_url,
+			type: 'GET',
+			contentType: 'application/json; charset=utf-8',
+			dataType: 'json',
+			success: function(data) {
+				var results = data['images']['titles']
+				var parsedResults = results.map(function (result) {
+					var escapedName = result.replace(/ /g, '-');
+					return {
+						name: result,
+						confidence: 1,
+						url: SVG_ENDPOINT + escapedName + '-01.svg',
+						url_variant_1: SVG_ENDPOINT + escapedName + '-02.svg',
+						url_variant_2: SVG_ENDPOINT + escapedName + '-03.svg'
+					};
+				});
+				displaySuggestions(parsedResults);
+			},
+			error: function(response) {
+				console.log(response);
+			}
+		});
+	}
 	
 	function displaySuggestions(suggestions) {
 	
@@ -285,8 +318,8 @@
 			src = $(this).attr('src')
 			pickSuggestion(src);
 			var productTitle = getProductTitle(src)
-			<!--alert(productTitle)
-			setFrame(productTitle)
+			displayLinkedSuggestions(productTitle);
+			setFrame(productTitle);
 		});
 	});
 </script>
