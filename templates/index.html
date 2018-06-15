@@ -4,8 +4,10 @@
 <html>
 	<style>
 		#can {border:1px solid black; }
-		#save {width:100px;height:90px; }
-		#clear {width:100px;height:90px; }
+		#save {width:100px;height:40px; }
+		#button-play-ws {width:100px;height:40px; }
+		#button-stop-ws {width:100px;height:40px; }
+		#clear {width:100px;height:40px; }
 		/*#suggestions {width: 800px;border:1px solid black; }*/
 		#suggestions img { cursor: pointer; }
 	</style>
@@ -19,6 +21,17 @@
 			<div>
 				<input id="save" type="button" value="Suggest" id="btn" size="30" onclick="save()">
 				<input id="clear" type="button" value="Clear" id="clr" size="23" onclick="erase()">
+				<textarea id="transcription" readonly="readonly"></textarea>
+				<button id="button-play-ws" class="button-demo">Ask for Product</button>
+				<button id="button-stop-ws" class="button-demo">Stop</button>
+
+				<label><input type="radio" name="recognition-type" value="final" checked="checked" hidden/></label>
+				<label><input type="radio" name="recognition-type" value="interim" hidden/></label>
+				<div id="log"></div>
+
+				<div class="buttons-wrapper">
+
+				</div>
 			</div>
 	    </div>
 	    <div class="col-sm">
@@ -277,4 +290,69 @@
 		});
 	});
 </script>
+<script>
+	      // Test browser support
+      window.SpeechRecognition = window.SpeechRecognition       ||
+                                 window.webkitSpeechRecognition ||
+                                 null;
+
+      if (window.SpeechRecognition === null) {
+        document.getElementById('ws-unsupported').classList.remove('hidden');
+        document.getElementById('button-play-ws').setAttribute('disabled', 'disabled');
+        document.getElementById('button-stop-ws').setAttribute('disabled', 'disabled');
+      } else {
+        var recognizer = new window.SpeechRecognition();
+        var transcription = document.getElementById('transcription');
+        var log = document.getElementById('log');
+
+        // Recogniser doesn't stop listening even if the user pauses
+        recognizer.continuous = true;
+
+        // Start recognising
+        recognizer.onresult = function(event) {
+          transcription.textContent = '';
+
+          for (var i = event.resultIndex; i < event.results.length; i++) {
+            if (event.results[i].isFinal) {
+              transcription.textContent = event.results[i][0].transcript;
+              frameNode = document.getElementById("mycanvas");
+              				url = "https://www.flipkart.com/search?q="+transcription.textContent;
+              				frameNode.setAttribute("src", url);
+              				frameNode.contentWindow.location.reload();
+//              transcription.textContent = event.results[i][0].transcript + ' (Confidence: ' + event.results[i][0].confidence + ')';
+            } else {
+              transcription.textContent += event.results[i][0].transcript;
+            }
+          }
+        };
+
+        // Listen for errors
+        recognizer.onerror = function(event) {
+          log.innerHTML = 'Recognition error: ' + event.message + '<br />' + log.innerHTML;
+        };
+
+        document.getElementById('button-play-ws').addEventListener('click', function() {
+          // Set if we need interim results
+          recognizer.interimResults = document.querySelector('input[name="recognition-type"][value="interim"]').checked;
+          try {
+            recognizer.start();
+            //log.innerHTML = 'Recognition started' + '<br />' + log.innerHTML;
+          } catch(ex) {
+            log.innerHTML = 'Recognition error: ' + ex.message + '<br />' + log.innerHTML;
+          }
+        });
+
+        document.getElementById('button-stop-ws').addEventListener('click', function() {
+          recognizer.stop();
+         // log.innerHTML = 'Recognition stopped' + '<br />' + log.innerHTML;
+        });
+
+        document.getElementById('clear-all').addEventListener('click', function() {
+          transcription.textContent = '';
+          log.textContent = '';
+        });
+      }
+
+</script>
+
 {% endblock %}
