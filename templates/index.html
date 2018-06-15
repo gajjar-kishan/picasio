@@ -266,6 +266,7 @@
 				.attr('src', suggestion.url)
 				.attr('width',80)
 				.attr('height',80)
+				.attr('title',suggestion.name)
 				.css({
 					border: '1px solid black'
 				})
@@ -308,7 +309,7 @@
 		frameNode = document.getElementById("mycanvas");
 		url = "https://www.flipkart.com/search?q="+product;
 		frameNode.setAttribute("src", url);
-		frameNode.contentWindow.location.reload();
+		// frameNode.contentWindow.location.reload();
 	}
 	
 	jQuery(function(){
@@ -322,8 +323,6 @@
 			setFrame(productTitle);
 		});
 	});
-</script>
-<script>
 	      // Test browser support
       window.SpeechRecognition = window.SpeechRecognition       ||
                                  window.webkitSpeechRecognition ||
@@ -348,15 +347,18 @@
           for (var i = event.resultIndex; i < event.results.length; i++) {
             if (event.results[i].isFinal) {
               transcription.textContent = event.results[i][0].transcript;
+          		console.log("Logging  000 " + transcription.textContent)
               frameNode = document.getElementById("mycanvas");
               				url = "https://www.flipkart.com/search?q="+transcription.textContent;
               				frameNode.setAttribute("src", url);
-              				frameNode.contentWindow.location.reload();
+              				// frameNode.contentWindow.location.reload();
+	          displayLinkedSuggestions(transcription.textContent);
 //              transcription.textContent = event.results[i][0].transcript + ' (Confidence: ' + event.results[i][0].confidence + ')';
             } else {
               transcription.textContent += event.results[i][0].transcript;
             }
           }
+          console.log("Logging" + transcription.textContent)
         };
 
         // Listen for errors
