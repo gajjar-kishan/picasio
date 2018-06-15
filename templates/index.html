@@ -6,7 +6,7 @@
 		#can {border:1px solid black; }
 		#save {width:100px;height:90px; }
 		#clear {width:100px;height:90px; }
-		#suggestions {width: 800px;border:1px solid black; }
+		/*#suggestions {width: 800px;border:1px solid black; }*/
 		#suggestions img { cursor: pointer; }
 	</style>
     <body bgcolor="silver">
@@ -15,18 +15,14 @@
 	</div>
 	<div class="row">
 	    <div class="col-sm">
-			<div style="float:left">
-				<canvas id="can" width="500" height="300"></canvas>
-				<div>
-					<input id="save" type="button" value="Suggest" id="btn" size="30" onclick="save()">
-					<input id="clear" type="button" value="Clear" id="clr" size="23" onclick="erase()">
-				</div>
+			<canvas id="can" width="500" height="300"></canvas>
+			<div>
+				<input id="save" type="button" value="Suggest" id="btn" size="30" onclick="save()">
+				<input id="clear" type="button" value="Clear" id="clr" size="23" onclick="erase()">
 			</div>
 	    </div>
 	    <div class="col-sm">
-	      	<div style="float:right">
-				<div id="suggestions"></div>
-			</div>
+			<div id="suggestions"></div>
 	    </div>
 	</div>
 	<div style="clear:both"></div>
@@ -235,7 +231,7 @@
 					$(this).remove();
 				});
 			
-			var $imgWrapper = jQuery('<div />').attr('style', 'width:80px;height:80px;');
+			var $imgWrapper = jQuery('<span />').attr('style', 'width:80px;height:80px;');
 			$imgWrapper.append($img);
 			$suggestions.append($imgWrapper);
 		}
@@ -276,7 +272,7 @@
 			src = $(this).attr('src')
 			pickSuggestion(src);
 			var productTitle = getProductTitle(src)
-			<!--alert(productTitle)-->
+			<!--alert(productTitle)
 			setFrame(productTitle)
 		});
 	});
