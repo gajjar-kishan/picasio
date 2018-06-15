@@ -344,6 +344,8 @@
 
         document.getElementById('button-stop-ws').addEventListener('click', function() {
           recognizer.stop();
+          transcription.textContent = '';
+          log.textContent = '';
          // log.innerHTML = 'Recognition stopped' + '<br />' + log.innerHTML;
         });
 
