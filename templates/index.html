@@ -14,28 +14,27 @@
     <body bgcolor="silver">
 	<div class="row">
 		<iframe id="mycanvas" height="500" width="1500" src="http://www.flipkart.com"></iframe>
-		<div class="row">
-			<div class="col-sm">
-
-				<canvas id="can" width="500" height="300"></canvas>
-				<div style="float:right" id="suggestions"></div>
-				<div style="clear:both">
-					<input id="save" type="button" value="Suggest" id="btn" size="30" onclick="save()">
-					<input id="clear" type="button" value="Clear" id="clr" size="23" onclick="erase()">
-					<label id="transcription" readonly="readonly"></label>
-					<button id="button-play-ws" class="button-demo">Ask for Product</button>
-					<button id="button-stop-ws" class="button-demo">Stop</button>
-
-					<label><input type="radio" name="recognition-type" value="final" checked="checked" hidden/></label>
-					<label><input type="radio" name="recognition-type" value="interim" hidden/></label>
-					<div id="log"></div>
-
-					<div class="buttons-wrapper">
-
-					</div>
+	</div>
+	<div class="row">
+		<div class="col-sm">
+			<canvas id="can" width="500" height="300"></canvas>
+		</div>
+		<div class="col-sm">
+			<div style="float:right" id="suggestions"></div>
+		</div>
+	</div>
+	<div class="row">
+		<div class="col-sm" style="clear:both">
+				<input id="save" type="button" value="Suggest" id="btn" size="30" onclick="save()">
+				<input id="clear" type="button" value="Clear" id="clr" size="23" onclick="erase()">
+				<label id="transcription" readonly="readonly"></label>
+				<button id="button-play-ws" class="button-demo">Listen!</button>
+				<button id="button-stop-ws" class="button-demo">Stop</button>
+				<label><input type="radio" name="recognition-type" value="final" checked="checked" hidden/></label>
+				<label><input type="radio" name="recognition-type" value="interim" hidden/></label>
+				<div id="log"></div>
+				<div class="buttons-wrapper">
 				</div>
-			</div>
-
 		</div>
 	</div>
 
@@ -129,8 +128,8 @@
 		if (res == "down") {
 			prevX = currX;
 			prevY = currY;
-			currX = e.clientX - canvas.offsetLeft - 75;
-			currY = e.clientY - canvas.offsetTop -500;
+			currX = e.clientX - canvas.offsetLeft - 150;
+			currY = e.clientY - canvas.offsetTop -400;
 	
 			pressed = true;
 			pressedAt = Date.now();
@@ -155,8 +154,8 @@
 			if (pressed) {
 				prevX = currX;
 				prevY = currY;
-				currX = e.clientX - canvas.offsetLeft - 75;
-				currY = e.clientY - canvas.offsetTop -500;
+				currX = e.clientX - canvas.offsetLeft - 150;
+				currY = e.clientY - canvas.offsetTop -400;
 				draw();
 			}
 		}
