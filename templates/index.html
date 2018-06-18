@@ -4,10 +4,10 @@
 <html>
 	<style>
 		#can {border:1px solid black; }
-		#save {width:100px;height:40px; }
-		#button-play-ws {width:100px;height:40px; }
-		#button-stop-ws {width:100px;height:40px; }
-		#clear {width:100px;height:40px; }
+		#save {width:100px;height:30px; }
+		#button-play-ws {width:100px;height:30px; }
+		#button-stop-ws {width:100px;height:30px; }
+		#clear {width:100px;height:30px; }
 		/*#suggestions {width: 800px;border:1px solid black; }*/
 		#suggestions img { cursor: pointer; }
 	</style>
@@ -129,7 +129,7 @@
 			prevX = currX;
 			prevY = currY;
 			currX = e.clientX - canvas.offsetLeft - 150;
-			currY = e.clientY - canvas.offsetTop -400;
+			currY = e.clientY - canvas.offsetTop -500;
 	
 			pressed = true;
 			pressedAt = Date.now();
@@ -155,7 +155,7 @@
 				prevX = currX;
 				prevY = currY;
 				currX = e.clientX - canvas.offsetLeft - 150;
-				currY = e.clientY - canvas.offsetTop -400;
+				currY = e.clientY - canvas.offsetTop -500;
 				draw();
 			}
 		}
@@ -257,7 +257,7 @@
 		var $suggestions = jQuery('#suggestions');
 		$suggestions.html('');
 	
-		suggestions.sort(function(b,a) {return (a.confidence > b.confidence) ? 1 : ((b.confidence > a.confidence) ? -1 : 0);} );
+		suggestions.sort(function(b,a) {return (a.confidence < b.confidence) ? 1 : ((b.confidence < a.confidence) ? -1 : 0);} );
 
 		for (var i = 0; i < suggestions.length; i++) {
 			var suggestion = suggestions[i];
